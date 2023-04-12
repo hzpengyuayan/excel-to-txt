@@ -1,0 +1,19 @@
+{
+  "name": "js-excel",
+  "version": "0.0.0",
+  "description": "excel-to-txt",
+  "main": "index.html",
+  "scripts": {
+    "version": "node ./scripts/update-version.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hzpengyuayan/excel-to-txt.git"
+  },
+  "author": "zhangchengyuan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hzpengyuayan/excel-to-txt/issues"
+  },
+  "homepage": "https://github.com/hzpengyuayan/excel-to-txt#readme"
+}
