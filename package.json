@@ -1,6 +1,6 @@
 {
   "name": "js-excel",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "excel-to-txt",
   "main": "index.html",
   "scripts": {
