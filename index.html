@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <!--引入react核心库-->
+    <script
+      crossorigin
+      src="https://unpkg.com/react@17/umd/react.development.js"
+    ></script>
+    <!--引入react扩展库，用于支持react操作dom-->
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"
+    ></script>
+    <!--引入babel，用于将jsx转成js-->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script
+      type="text/javascript"
+      src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"
+    ></script>
+  </head>
+
+  <body>
+    <div id="app"></div>
+  </body>
+  <script type="text/babel">
+    let allSheets = {};
+    let allSheetsNames = [];
+    const App = () => {
+      const [sheetName, setSheetName] = React.useState("");
+      const [txtData, setTxtData] = React.useState({});
+      const [headerNames, setHeaderNames] = React.useState([]);
+      const [selectHeads, setSelectHeads] = React.useState([]);
+      const [filterMethods, setFilterMethods] = React.useState({});
+
+      //上传文件
+      const uploadFile = (e) => {
+        const files = e.target.files; // 导入的文件是数组的
+        const file = files[0]; // only use files[0]
+        if (!file) return;
+        readFile(file); //导入的文件
+      };
+
+      //读取文件数据
+      const readFile = (rawFile) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const data = e.target.result;
+            const workbook = XLSX.read(data, { type: "array" }); //读取出的源表格数据
+            allSheets = workbook; //所有表数据
+            allSheetsNames = workbook.SheetNames; //所有表名称
+            setSheetName(allSheetsNames[0]); //默认选中第一个表
+            resolve();
+          };
+          reader.readAsArrayBuffer(rawFile);
+        });
+      };
+
+      //选择表
+      const selectSheet = (sheetName) => {
+        setSheetName(sheetName);
+        setSelectHeads([]);
+        setFilterMethods({});
+      };
+
+      //选择列
+      const selectSheetCol = (isChecked, col) => {
+        if (isChecked === true) {
+          setSelectHeads([...selectHeads, col]);
+          let newFilterMethods = { ...filterMethods };
+          newFilterMethods[col] = {
+            mode: "",
+            value: "",
+          };
+          setFilterMethods(newFilterMethods);
+        } else {
+          let i = selectHeads.indexOf(col);
+          if (i > -1) {
+            let newSelectHeads = selectHeads.slice();
+            newSelectHeads.splice(i, 1);
+            setSelectHeads(newSelectHeads);
+          }
+          let newFilterMethods = { ...filterMethods };
+          delete newFilterMethods[col];
+          setFilterMethods(newFilterMethods);
+        }
+      };
+
+      //选择筛选模式
+      const selectFilterMode = (filterKey, filterMode) => {
+        setFilterMethods({
+          ...filterMethods,
+          [filterKey]: {
+            ...filterMethods[filterKey],
+            mode: filterMode,
+          },
+        });
+      };
+
+      //选择筛选值
+      const selectFilterVal = (filterKey, filterVal) => {
+        setFilterMethods({
+          ...filterMethods,
+          [filterKey]: {
+            ...filterMethods[filterKey],
+            value: filterVal,
+          },
+        });
+      };
+
+      React.useEffect(() => {
+        if (allSheets.Sheets && sheetName) {
+          const worksheet = allSheets.Sheets[sheetName];
+          const header = getSheetHeader(worksheet); // 获取第一行的所有标题
+          setHeaderNames(header);
+          const results = XLSX.utils.sheet_to_json(worksheet); // 将当前页的所有数据转换为json
+          console.log(results);
+          setTxtData(results);
+        }
+      }, [sheetName]);
+
+      const getSheetHeader = (sheet) => {
+        const headers = [];
+        const range = XLSX.utils.decode_range(sheet["!ref"]);
+        let C;
+        const R = range.s.r;
+
+        for (C = range.s.c; C <= range.e.c; ++C) {
+          const cell =
+            sheet[
+              XLSX.utils.encode_cell({
+                c: C,
+                r: R,
+              })
+            ];
+
+          let hdr = "UNKNOWN " + C; // <-- replace with your desired default
+          if (cell && cell.t) hdr = XLSX.utils.format_cell(cell);
+          headers.push(hdr);
+        }
+        return headers;
+      };
+
+      const exportTxtFile = (name, data) => {
+        let fileData = "";
+
+        let copyData = JSON.parse(JSON.stringify(data));
+        for (let i = 0; i < copyData.length; i++) {
+          const item = copyData[i];
+          for (let key in item) {
+            // 删除没有选中的列
+            if (selectHeads.indexOf(key) < 0) {
+              delete item[key];
+            }
+            // 对于选中的列
+            else {
+              //   if (filterMethods[key].mode === "等于"){
+              //     console.log();
+              //   }
+            }
+          }
+          fileData += JSON.stringify(item) + "\n";
+        }
+        // copyData.forEach((item) => {
+        //   for (let key in item) {
+        //     // 删除没有选中的列
+        //     if (selectHeads.indexOf(key) < 0) delete item[key];
+        //     else {
+        //       //选中的列
+        //       if (
+        //         filterMethods[key].mode.length > 0 &&
+        //         filterMethods[key].value.length > 0
+        //       ) {
+        //         //如果是等于的话
+        //         if (filterMethods[key].mode === "等于") {
+        //           if (!item.hasOwnProperty(key)) {
+        //             console.log(item);
+        //           }
+        //           //   let compareVal = item[key] || "";
+        //           //   console.log(
+        //           //     compareVal,
+        //           //     String(filterMethods[key].value),
+        //           //     compareVal != String(filterMethods[key].value)
+        //           //   );
+        //           //   if (String(item[key]) != String(filterMethods[key].value)) {
+        //           //     return;
+        //           //   }
+        //         }
+        //       }
+        //     }
+        //     // else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "不等于"
+        //     //   ) {
+        //     //     if (!item[key] != filterMethods[key].value) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "大于"
+        //     //   ) {
+        //     //     if (!item[key] > filterMethods[key].value) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "大于等于"
+        //     //   ) {
+        //     //     if (!item[key] >= filterMethods[key].value) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "小于"
+        //     //   ) {
+        //     //     if (!item[key] < filterMethods[key].value) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "小于等于"
+        //     //   ) {
+        //     //     if (!item[key] <= filterMethods[key].value) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "包含"
+        //     //   ) {
+        //     //     if (!item[key].includes(filterMethods[key].value)) return;
+        //     //   } else if (
+        //     //     filterMethods[key] &&
+        //     //     filterMethods[key].mode === "不包含"
+        //     //   ) {
+        //     //     if (item[key].includes(filterMethods[key].value)) return;
+        //     //   }
+        //     // }
+        //   }
+        //   //console.log(item);
+        //   fileData += JSON.stringify(item) + "\n";
+        // });
+
+        const urlObject = window.URL || window.webkitURL || window;
+        const export_blob = new Blob([fileData]);
+
+        const save_link = document.createElementNS(
+          "http://www.w3.org/1999/xhtml",
+          "a"
+        );
+        save_link.href = urlObject.createObjectURL(export_blob);
+        save_link.download = name;
+
+        const ev = document.createEvent("MouseEvents");
+        ev.initMouseEvent(
+          "click",
+          true,
+          false,
+          window,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          false,
+          false,
+          false,
+          0,
+          null
+        );
+        save_link.dispatchEvent(ev);
+      };
+
+      React.useEffect(() => {
+        const copyData = [
+          {
+            name: "zhangsan-number",
+            sex: 0,
+            age: 18,
+          },
+          {
+            name: "zhangsan-string",
+            sex: "0",
+            age: 18,
+          },
+          {
+            name: "lisi",
+            sex: 1,
+            age: 18,
+          },
+          {
+            name: "zhangsan",
+            age: 18,
+          },
+        ];
+
+        const selectHeads = ["name", "sex"];
+
+        const filterMethods = {
+          sex: {
+            mode: "大于",
+            value: -1,
+          },
+          //   sex: {
+          //     mode: "",
+          //     value: "",
+          //   },
+        };
+        //满足指定列的数据，然后寻找是否满足条件，有一个条件不满足就不要了
+        //
+        let fileData = "";
+        for (let i = 0; i < copyData.length; i++) {
+          const item = copyData[i];
+          for (let key in item) {
+            // 对于选中的列
+            if (selectHeads.indexOf(key) < 0) delete item[key];
+          }
+        }
+        let n = copyData.filter((item) => {
+          for (const key in item) {
+            if (Object.keys(filterMethods).indexOf(key) > -1) {
+              if (filterMethods[key].mode === "等于") {
+                return item[key] == filterMethods[key].value;
+              } else if (filterMethods[key].mode === "大于") {
+                return item[key] > filterMethods[key].value;
+              }
+            }
+          }
+        });
+
+        console.log(n);
+        //console.log(a.filter((item) => item.sex == 0));
+      }, []);
+
+      return (
+        <div>
+          <label htmlFor="sheets">
+            1.导入excel文件(仅支持单个导入)：
+            <input
+              type="file"
+              id="sheets"
+              accept=".xlsx, .xls"
+              onChange={uploadFile}
+            />
+          </label>
+          <hr />
+          2.选择工作表名称：
+          <select
+            id="sheetsName"
+            value={sheetName}
+            onChange={(e) => selectSheet(e.target.value)}
+          >
+            <option value="" style={{ display: "none" }}></option>
+            {allSheetsNames.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <hr />
+          3.选择指定列：
+          <ul>
+            {headerNames.map((item, index) => {
+              return (
+                <li
+                  key={item}
+                  style={{
+                    width: 800,
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>
+                    <input
+                      type="checkbox"
+                      onChange={(e) => selectSheetCol(e.target.checked, item)}
+                    />
+                    {item}
+                  </span>
+
+                  <span>
+                    筛选模式：
+                    <select
+                      name=""
+                      id="proc"
+                      onChange={(e) => selectFilterMode(item, e.target.value)}
+                    >
+                      <option value="">无</option>
+                      <option value="等于">等于</option>
+                      <option value="不等于">不等于</option>
+                      <option value="大于">大于</option>
+                      <option value="大于等于">大于等于</option>
+                      <option value="小于">小于</option>
+                      <option value="小于等于">小于等于</option>
+                      <option value="包含">包含</option>
+                      <option value="不包含">不包含</option>
+                    </select>
+                    &nbsp; 筛选值：
+                    <input
+                      type="text"
+                      onChange={(e) => selectFilterVal(item, e.target.value)}
+                    />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <hr />
+          4.导出指定列的数据：
+          <button
+            onClick={() => {
+              exportTxtFile("数据整合文件", txtData);
+            }}
+          >
+            导出txt文件
+          </button>
+        </div>
+      );
+    };
+    ReactDOM.render(<App />, document.getElementById("app"));
+  </script>
+</html>
